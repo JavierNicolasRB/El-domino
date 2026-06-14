@@ -12,6 +12,7 @@ public class Controlador implements ActionListener {
         this.vista = vista;
         this.modelo = modelo;
 
+        // Conectamos todos los botones de la vista para que el controlador "escuche" sus clics
         this.vista.btnNuevaPartida.addActionListener(this);
         this.vista.btnVerRankingMenu.addActionListener(this);
         this.vista.btnAyuda.addActionListener(this);
@@ -24,6 +25,9 @@ public class Controlador implements ActionListener {
         this.vista.btnOkMensaje.addActionListener(this);
     }
 
+    // ==========================================================
+    // ENRUTADOR PRINCIPAL DE EVENTOS (Navegación y botones)
+    // ==========================================================
     @Override
     public void actionPerformed(ActionEvent e) {
         Object src = e.getSource();
@@ -42,6 +46,7 @@ public class Controlador implements ActionListener {
                 vista.mostrarAviso("¡Introduce un nombre!");
             }
         } 
+        // Abre el archivo de ayuda externo de Windows (.chm)
         else if (src == vista.btnAyuda) {
             try {
                 ProcessBuilder pb = new ProcessBuilder("hh.exe", "juegopr.chm");
@@ -58,6 +63,8 @@ public class Controlador implements ActionListener {
         } 
         else if (src == vista.btnVolverMenu) { vista.mostrarMenuPrincipal(); } 
         else if (src == vista.btnOkMensaje) { vista.dlgMensaje.setVisible(false); }
+        
+        // Botón para robar ficha durante la partida
         else if (src == vista.btnPedir) {
             if (modelo.jugadorRobaFicha()) {
                 vista.mostrarAviso("Has robao una ficha del pozo.");
@@ -69,15 +76,17 @@ public class Controlador implements ActionListener {
     }
 
     // ==========================================================
-    // MÉTODOS DE APOYO DEL JUEGO
+    // LÓGICA Y FLUJO DEL JUEGO
     // ==========================================================
 
+    // Prepara una partida nueva y cambia a la pantalla del tablero
     private void iniciarJuego(String nombre) {
         modelo.iniciarNuevaPartida(nombre);
         actualizarPantallaJuego();
         vista.mostrarPantallaJuego();
     }
 
+    // Refresca la mesa y recrea las fichas de la mano para que sean clickeables
     private void actualizarPantallaJuego() {
         vista.areaTablero.fichasEnJuego = modelo.getTablero().getFichasEnJuego();
         vista.areaTablero.repaint();
@@ -85,6 +94,8 @@ public class Controlador implements ActionListener {
         vista.areaMano.removeAll();
         for (Modelo.Ficha f : modelo.getManoJugador()) {
             Vista.FichaCanvas fichaDibujada = vista.new FichaCanvas(f);
+            
+            // Añade un evento de ratón a cada ficha generada para que reaccione al clic
             fichaDibujada.addMouseListener(new MouseAdapter() {
                 @Override
                 public void mouseClicked(MouseEvent e) {
@@ -99,6 +110,7 @@ public class Controlador implements ActionListener {
         vista.ventana.repaint(); 
     }
 
+    // Comprueba si la ficha tocada encaja. Si es válida, pasa el turno al bot
     public void intentarJugadaUsuario(Modelo.Ficha ficha) {
         boolean jugadaValida = false;
         
@@ -114,7 +126,7 @@ public class Controlador implements ActionListener {
             modelo.getManoJugador().remove(ficha);
             actualizarPantallaJuego();
             
-            // Si te quedas sin fichas, ganas la partida
+            // Si te quedas sin fichas, ganas la partida inmediatamente
             if (modelo.getManoJugador().isEmpty()) finalizarPartida(true);
             else ejecutarTurnoBot();
         } else {
@@ -122,6 +134,7 @@ public class Controlador implements ActionListener {
         }
     }
 
+    // Inteligencia del bot: busca la primera ficha que encaje en la mesa, si no tiene, roba
     private void ejecutarTurnoBot() {
         Optional<Modelo.Ficha> fichaElegida = Optional.empty();
         boolean jugarPorIzquierda = false;
@@ -139,6 +152,7 @@ public class Controlador implements ActionListener {
             }
         }
         
+        // Si el bot ha encontrado una ficha válida, la coloca
         if (fichaElegida.isPresent()) {
             Modelo.Ficha f = fichaElegida.get();
             if (jugarPorIzquierda) modelo.getTablero().jugarPorIzquierda(f);
@@ -153,6 +167,7 @@ public class Controlador implements ActionListener {
                 finalizarPartida(false); 
             }
         } else {
+            // Si no tiene jugada posible, roba e intenta jugar de nuevo
             if (modelo.botRobaFicha()) {
                 vista.mostrarAviso("Bot Manue ha robao una ficha.");
                 actualizarPantallaJuego();
@@ -163,11 +178,11 @@ public class Controlador implements ActionListener {
         }
     }
 
+    // Se llama cuando nadie puede jugar y el pozo está vacío (gana quien tenga menos puntos en mano)
     private void verificarCierre() {
         int ptsJugador = modelo.getPuntosJugador();
         int ptsBot = modelo.getPuntosBot();
         
-        // Si se cierra la partida (nadie puede robar), gana el que menos puntos sume en mano
         if (ptsJugador < ptsBot) {
             vista.mostrarAviso("Fin. ¡Ganaste por tener menos puntos!");
             finalizarPartida(true);
@@ -177,7 +192,7 @@ public class Controlador implements ActionListener {
         }
     }
 
-    // --- NUEVO MÉTODO UNIFICADO ---
+    // Calcula puntos de la partida, guarda en la base de datos y muestra la pantalla final
     private void finalizarPartida(boolean victoria) {
         // Puntos variables: ganas entre 300-500 si ganas, y te llevas 50-100 de consolación si pierdes
         int puntos;
@@ -195,10 +210,10 @@ public class Controlador implements ActionListener {
             vista.mostrarAviso("Error: No se ha podido conectar con la Base de Datos.");
         }
         
-        // Mostramos la pantalla final pasándole los puntos y si hemos ganado o no
         vista.mostrarPantallaFin(puntos, victoria);
     }
 
+    // Pide el Top 10 al Modelo y lo inyecta en la lista visual de la Vista
     private void cargarRankingEnVista() {
         vista.lstRanking.removeAll();
         List<String[]> top = modelo.obtenerTop10();

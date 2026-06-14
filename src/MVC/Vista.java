@@ -6,7 +6,11 @@ import java.awt.event.*;
 public class Vista extends WindowAdapter {
     public Frame ventana = new Frame("ER DOMINÓ");
 
-    // --- COMPONENTES MENÚ PRINCIPAL ---
+    // ==========================================================
+    // COMPONENTES DE LA INTERFAZ (Pantallas y controles)
+    // ==========================================================
+    
+    // Pantalla 1: Menú Principal
     public Panel panelMenu = new Panel(null);
     public Label labelTitulo = new Label("ER DOMINÓ", Label.CENTER);
     public Button btnNuevaPartida = new Button("Nueba Partida");
@@ -14,43 +18,45 @@ public class Vista extends WindowAdapter {
     public Button btnAyuda = new Button("Ayuda"); 
     public Canvas fichaDibujoMenu = new CanvasMenu(); 
 
-    // --- COMPONENTES DIÁLOGO IDENTIFICACIÓN ---
+    // Diálogo emergente para pedir el nombre del jugador
     public Dialog dlgNombre = new Dialog(ventana, "Identificacion", true);
     public TextField txtNombre = new TextField(15);
     public Button btnAceptarNombre = new Button("Aceptar");
 
-    // --- COMPONENTES SALAS ---
+    // Pantalla 2: Selección y creación de salas
     public Panel panelSalas = new Panel(null);
     public Button btnCrear = new Button("Creah cala");
-
     public Panel panelCodigo = new Panel(null);
     public Label lblCodigo = new Label("Codigo Cala: 123456", Label.CENTER);
     public Button btnAceptarSala = new Button("Acettah");
 
-    // --- COMPONENTES JUEGO ---
+    // Pantalla 3: Mesa principal de juego
     public Panel panelJuego = new Panel(null);
     public Panel bandaGris = new Panel();
     public CanvasTablero areaTablero = new CanvasTablero(); 
     public Panel areaMano = new Panel(new FlowLayout(FlowLayout.LEFT, 5, 5));
     public Button btnPedir = new Button("Pedi Ficha");
 
-    // --- COMPONENTES PANTALLA FIN DE PARTIDA ---
+    // Pantalla 4: Fin de partida (Victoria o Derrota)
     public Panel panelVictoria = new Panel(null);
     public Label lblPuntosVic = new Label("", Label.CENTER);
-    public Label lblGanaste = new Label("", Label.CENTER); // El texto se pone dinámicamente ahora
+    public Label lblGanaste = new Label("", Label.CENTER); 
     public Button btnVerRankingVic = new Button("Ver Top 10");
 
-    // --- COMPONENTES RANKING ---
+    // Pantalla 5: Ranking Histórico
     public Panel panelRanking = new Panel(null);
     public Label lblTituloRanking = new Label("Ranking (Top 10)", Label.CENTER);
     public java.awt.List lstRanking = new java.awt.List();
     public Button btnVolverMenu = new Button("Menu Principal");
 
-    // --- DIÁLOGOS Y AVISOS ---
+    // Diálogo genérico para mostrar mensajes de aviso o error
     public Dialog dlgMensaje = new Dialog(ventana, "Aviso", true);
     public Label lblMensaje = new Label("", Label.CENTER);
     public Button btnOkMensaje = new Button("OK");
 
+    // ==========================================================
+    // INICIALIZACIÓN DE LA VISTA
+    // ==========================================================
     public Vista() {
         ventana.setSize(450, 500);
         ventana.setLocationRelativeTo(null);
@@ -61,6 +67,7 @@ public class Vista extends WindowAdapter {
         configurarPaneles();
     }
 
+    // Ubica, dimensiona y da estilo a todos los elementos en sus respectivos paneles
     private void configurarPaneles() {
         panelMenu.setBackground(Color.WHITE);
         labelTitulo.setFont(new Font("Impact", Font.BOLD, 36));
@@ -114,6 +121,7 @@ public class Vista extends WindowAdapter {
         panelRanking.add(lblTituloRanking); panelRanking.add(lstRanking); panelRanking.add(btnVolverMenu);
     }
 
+    // Prepara las ventanitas emergentes (pop-ups)
     private void configurarDialogos() {
         dlgNombre.setLayout(new FlowLayout(FlowLayout.CENTER, 10, 15)); 
         dlgNombre.setSize(250, 130);
@@ -129,13 +137,17 @@ public class Vista extends WindowAdapter {
         dlgMensaje.addWindowListener(this);
     }
 
+    // ==========================================================
+    // ENRUTAMIENTO VISUAL (Manejo de pantallas)
+    // ==========================================================
+    // Vacían la ventana principal y cargan el panel correspondiente
     public void mostrarMenuPrincipal() { ventana.removeAll(); ventana.add(panelMenu); ventana.validate(); ventana.repaint(); }
     public void abrirPantallaSalas() { ventana.removeAll(); ventana.add(panelSalas); ventana.validate(); ventana.repaint(); }
     public void mostrarCodigoSala() { ventana.removeAll(); ventana.add(panelCodigo); ventana.validate(); ventana.repaint(); }
     public void mostrarPantallaJuego() { ventana.removeAll(); ventana.add(panelJuego); ventana.validate(); ventana.repaint(); }
     public void mostrarPantallaRanking() { ventana.removeAll(); ventana.add(panelRanking); ventana.validate(); ventana.repaint(); }
     
-    // --- NUEVO MÉTODO DE PANTALLA FINAL ---
+    // Configura los textos finales dependiendo de si ganas o pierdes antes de mostrar el panel
     public void mostrarPantallaFin(int puntos, boolean ganaste) { 
         lblPuntosVic.setText("Puntuacion: " + puntos + "p"); 
         if (ganaste) {
@@ -148,24 +160,30 @@ public class Vista extends WindowAdapter {
         ventana.validate(); 
         ventana.repaint(); 
     }
-    // --------------------------------------
 
+    // Lanza el pop-up genérico con un mensaje personalizado
     public void mostrarAviso(String texto) {
         lblMensaje.setText(texto);
         dlgMensaje.setLocationRelativeTo(ventana);
         dlgMensaje.setVisible(true);
     }
 
+    // Controla el comportamiento al pulsar la 'X' de las ventanas
     @Override
     public void windowClosing(WindowEvent e) {
         if (e.getSource() == dlgNombre) dlgNombre.setVisible(false);
         else if (e.getSource() == dlgMensaje) dlgMensaje.setVisible(false);
-        else System.exit(0);
+        else System.exit(0); // Cierra el juego entero si es la ventana principal
     }
 
+    // ==========================================================
+    // SISTEMA DE DIBUJO AWT (Fichas de dominó)
+    // ==========================================================
+    
+    // Dibuja los puntitos negros en las coordenadas correctas según el valor (1 al 6)
     public void dibujarPuntos(Graphics g, int x, int y, int valor) {
         g.setColor(Color.BLACK);
-        int dp = 4;
+        int dp = 4; // Tamaño de cada puntito
         switch (valor) {
             case 1: g.fillOval(x + 8, y + 10, dp, dp); break;
             case 2: g.fillOval(x + 4, y + 5, dp, dp); g.fillOval(x + 12, y + 16, dp, dp); break;
@@ -176,6 +194,7 @@ public class Vista extends WindowAdapter {
         }
     }
 
+    // Lienzo decorativo para el menú principal (muestra siempre un 5 doble fijo)
     public class CanvasMenu extends Canvas {
         @Override public void paint(Graphics g) {
             g.setColor(Color.BLACK);
@@ -186,6 +205,7 @@ public class Vista extends WindowAdapter {
         }
     }
 
+    // Lienzo de la mesa: recorre todas las fichas jugadas y las dibuja en formato horizontal
     public class CanvasTablero extends Canvas {
         public java.util.List<Modelo.Ficha> fichasEnJuego = new java.util.ArrayList<>();
         @Override public void paint(Graphics g) {
@@ -194,6 +214,7 @@ public class Vista extends WindowAdapter {
             if (fichasEnJuego == null) return;
             int index = 0;
             for (Modelo.Ficha f : fichasEnJuego) {
+                // Matemáticas simples para colocarlas en filas y columnas
                 int x = 15 + ((index % 7) * 46);
                 int y = 15 + ((index / 7) * 35);
                 g.setColor(Color.WHITE); g.fillRect(x, y, 40, 25);
@@ -206,6 +227,7 @@ public class Vista extends WindowAdapter {
         }
     }
 
+    // Lienzo individual clickeable (sustituto del Button) para representar cada ficha de la mano en vertical
     public class FichaCanvas extends Canvas {
         public final Modelo.Ficha ficha;
         public FichaCanvas(Modelo.Ficha ficha) {

@@ -11,29 +11,38 @@ public class Modelo {
     // ==========================================================
     // CLASES INTERNAS DE DATOS
     // ==========================================================
+    
+    // Representa una ficha individual del dominó
     public record Ficha(int ladoA, int ladoB) {
         public Ficha voltear() { return new Ficha(ladoB, ladoA); }
         public int getPuntos() { return ladoA + ladoB; }
         @Override public String toString() { return "[" + ladoA + "|" + ladoB + "]"; }
+        
+        // Permite identificar si dos fichas son idénticas para borrarlas de la mano
         @Override public boolean equals(Object o) { 
             if(o instanceof Ficha f) return (this.ladoA == f.ladoA && this.ladoB == f.ladoB); 
             return false; 
         }
     }
 
+    // Gestiona las fichas que ya están puestas sobre la mesa
     public static class Tablero {
         private final LinkedList<Ficha> fichasEnJuego = new LinkedList<>();
         public LinkedList<Ficha> getFichasEnJuego() { return fichasEnJuego; }
         public boolean estaVacio() { return fichasEnJuego.isEmpty(); }
+        
+        // Lee los números de las puntas para saber qué fichas se pueden jugar
         public int getExtremoIzquierdo() { return estaVacio() ? -1 : fichasEnJuego.getFirst().ladoA(); }
         public int getExtremoDerecho() { return estaVacio() ? -1 : fichasEnJuego.getLast().ladoB(); }
         
+        // Intenta colocar la ficha en el lado izquierdo, volteándola si es necesario
         public boolean jugarPorIzquierda(Ficha ficha) {
             if (estaVacio() || ficha.ladoB() == getExtremoIzquierdo()) { fichasEnJuego.addFirst(ficha); return true; }
             else if (ficha.ladoA() == getExtremoIzquierdo()) { fichasEnJuego.addFirst(ficha.voltear()); return true; }
             return false;
         }
         
+        // Intenta colocar la ficha en el lado derecho
         public boolean jugarPorDerecha(Ficha ficha) {
             if (estaVacio() || ficha.ladoA() == getExtremoDerecho()) { fichasEnJuego.addLast(ficha); return true; }
             else if (ficha.ladoB() == getExtremoDerecho()) { fichasEnJuego.addLast(ficha.voltear()); return true; }
@@ -50,6 +59,7 @@ public class Modelo {
     private List<Ficha> pozo;
     private String nombreJugador;
 
+    // Genera las 28 fichas, las baraja y reparte 7 a cada jugador
     public void iniciarNuevaPartida(String nombre) {
         this.nombreJugador = nombre;
         this.tablero = new Tablero();
@@ -67,7 +77,7 @@ public class Modelo {
             manoJugador.add(todasLasFichas.remove(0));
             manoBot.add(todasLasFichas.remove(0));
         }
-        pozo = todasLasFichas; 
+        pozo = todasLasFichas; // Las fichas sobrantes se quedan para robar
     }
 
     public Tablero getTablero() { return tablero; }
@@ -76,6 +86,7 @@ public class Modelo {
     public List<Ficha> getPozo() { return pozo; }
     public String getNombreJugador() { return nombreJugador; }
 
+    // Saca una ficha del pozo y la añade a la mano (si quedan fichas)
     public boolean jugadorRobaFicha() {
         if (!pozo.isEmpty()) { manoJugador.add(pozo.remove(0)); return true; }
         return false;
@@ -86,18 +97,18 @@ public class Modelo {
         return false;
     }
 
+    // Calcula la suma de los puntos de las fichas que quedan en la mano
     public int getPuntosJugador() { return manoJugador.stream().mapToInt(Ficha::getPuntos).sum(); }
     public int getPuntosBot() { return manoBot.stream().mapToInt(Ficha::getPuntos).sum(); }
 
     // ==========================================================
     // BASE DE DATOS (Ranking)
     // ==========================================================
-    // Asegúrate de que el puerto (3306), el usuario (root) y la clave (1234) son los tuyos.
     private final String urlBD = "jdbc:mysql://localhost:3306/PrJuego";
     private final String userBD = "root";
     private final String passBD = "1234";
 
-    // AHORA DEVUELVE BOOLEAN PARA SABER SI HA IDO BIEN
+    // Inserta la partida terminada en la base de datos
     public boolean guardarPuntuacion(int puntuacion) {
         String sql = "INSERT INTO jugadores (nombreJugador, puntuacionJugador) VALUES (?, ?)";
         try (Connection conn = DriverManager.getConnection(urlBD, userBD, passBD);
@@ -105,13 +116,14 @@ public class Modelo {
             pstmt.setString(1, nombreJugador);
             pstmt.setInt(2, puntuacion);
             pstmt.executeUpdate();
-            return true; // Se guardó con éxito
+            return true;
         } catch (Exception e) { 
             System.err.println("Error al guardar BD: " + e.getMessage()); 
-            return false; // Falló al guardar
+            return false;
         }
     }
 
+    // Recupera las 10 mejores partidas ordenadas de mayor a menor puntuación
     public List<String[]> obtenerTop10() {
         List<String[]> ranking = new ArrayList<>();
         String sql = "SELECT nombreJugador, puntuacionJugador FROM jugadores ORDER BY puntuacionJugador DESC LIMIT 10";
