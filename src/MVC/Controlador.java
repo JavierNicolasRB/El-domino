@@ -4,15 +4,25 @@ import java.awt.event.*;
 import java.util.List;
 import java.util.Optional;
 
-public class Controlador implements ActionListener {
+public class Controlador extends WindowAdapter implements ActionListener {
     private final Vista vista;
     private final Modelo modelo;
+    
+    // Listener de ratón unificado para detectar las pulsaciones en las fichas del jugador
+    private final MouseListener fichaManoListener = new MouseAdapter() {
+        @Override
+        public void mouseClicked(MouseEvent e) {
+            // Conseguimos el lienzo específico que provocó el evento y extraemos su ficha asignada
+            Vista.FichaCanvas source = (Vista.FichaCanvas) e.getSource();
+            intentarJugadaUsuario(source.ficha);
+        }
+    };
 
     public Controlador(Vista vista, Modelo modelo) {
         this.vista = vista;
         this.modelo = modelo;
 
-        // Conectamos todos los botones de la vista para que el controlador "escuche" sus clics
+        // Conectamos los botones de la vista
         this.vista.btnNuevaPartida.addActionListener(this);
         this.vista.btnVerRankingMenu.addActionListener(this);
         this.vista.btnAyuda.addActionListener(this);
@@ -23,10 +33,24 @@ public class Controlador implements ActionListener {
         this.vista.btnVerRankingVic.addActionListener(this);
         this.vista.btnVolverMenu.addActionListener(this);
         this.vista.btnOkMensaje.addActionListener(this);
+
+        // Controladores de Ventana enlazados al controlador (MVC Estricto)
+        this.vista.ventana.addWindowListener(this);
+        this.vista.dlgNombre.addWindowListener(this);
+        this.vista.dlgMensaje.addWindowListener(this);
+    }
+
+    // --- GESTIÓN DE CIERRE DE VENTANAS MIGRADO AL CONTROLADOR ---
+    @Override
+    public void windowClosing(WindowEvent e) {
+        Object src = e.getSource();
+        if (src == vista.dlgNombre) vista.dlgNombre.setVisible(false);
+        else if (src == vista.dlgMensaje) vista.dlgMensaje.setVisible(false);
+        else System.exit(0); 
     }
 
     // ==========================================================
-    // ENRUTADOR PRINCIPAL DE EVENTOS (Navegación y botones)
+    // ENRUTADOR PRINCIPAL DE EVENTOS
     // ==========================================================
     @Override
     public void actionPerformed(ActionEvent e) {
@@ -46,7 +70,6 @@ public class Controlador implements ActionListener {
                 vista.mostrarAviso("¡Introduce un nombre!");
             }
         } 
-        // Abre el archivo de ayuda externo de Windows (.chm)
         else if (src == vista.btnAyuda) {
             try {
                 ProcessBuilder pb = new ProcessBuilder("hh.exe", "juegopr.chm");
@@ -64,7 +87,6 @@ public class Controlador implements ActionListener {
         else if (src == vista.btnVolverMenu) { vista.mostrarMenuPrincipal(); } 
         else if (src == vista.btnOkMensaje) { vista.dlgMensaje.setVisible(false); }
         
-        // Botón para robar ficha durante la partida
         else if (src == vista.btnPedir) {
             if (modelo.jugadorRobaFicha()) {
                 vista.mostrarAviso("Has robao una ficha del pozo.");
@@ -78,39 +100,25 @@ public class Controlador implements ActionListener {
     // ==========================================================
     // LÓGICA Y FLUJO DEL JUEGO
     // ==========================================================
-
-    // Prepara una partida nueva y cambia a la pantalla del tablero
     private void iniciarJuego(String nombre) {
         modelo.iniciarNuevaPartida(nombre);
         actualizarPantallaJuego();
         vista.mostrarPantallaJuego();
     }
 
-    // Refresca la mesa y recrea las fichas de la mano para que sean clickeables
     private void actualizarPantallaJuego() {
+        // Vinculamos los datos de las fichas en juego directamente al lienzo
         vista.areaTablero.fichasEnJuego = modelo.getTablero().getFichasEnJuego();
         vista.areaTablero.repaint();
 
-        vista.areaMano.removeAll();
-        for (Modelo.Ficha f : modelo.getManoJugador()) {
-            Vista.FichaCanvas fichaDibujada = vista.new FichaCanvas(f);
-            
-            // Añade un evento de ratón a cada ficha generada para que reaccione al clic
-            fichaDibujada.addMouseListener(new MouseAdapter() {
-                @Override
-                public void mouseClicked(MouseEvent e) {
-                    intentarJugadaUsuario(f);
-                }
-            });
-            vista.areaMano.add(fichaDibujada);
-        }
+        // DELEGAMOS la creación visual de la mano a la vista pasándole el listener del controlador
+        vista.mostrarMano(modelo.getManoJugador(), fichaManoListener);
         
+        // El controlador modifica los textos pero no la composición estructural
         vista.btnPedir.setLabel("Pedi Ficha (" + modelo.getPozo().size() + " en pozo)");
-        vista.ventana.validate();
-        vista.ventana.repaint(); 
+        vista.validarYRepintar();
     }
 
-    // Comprueba si la ficha tocada encaja. Si es válida, pasa el turno al bot
     public void intentarJugadaUsuario(Modelo.Ficha ficha) {
         boolean jugadaValida = false;
         
@@ -126,7 +134,6 @@ public class Controlador implements ActionListener {
             modelo.getManoJugador().remove(ficha);
             actualizarPantallaJuego();
             
-            // Si te quedas sin fichas, ganas la partida inmediatamente
             if (modelo.getManoJugador().isEmpty()) finalizarPartida(true);
             else ejecutarTurnoBot();
         } else {
@@ -134,7 +141,6 @@ public class Controlador implements ActionListener {
         }
     }
 
-    // Inteligencia del bot: busca la primera ficha que encaje en la mesa, si no tiene, roba
     private void ejecutarTurnoBot() {
         Optional<Modelo.Ficha> fichaElegida = Optional.empty();
         boolean jugarPorIzquierda = false;
@@ -152,7 +158,6 @@ public class Controlador implements ActionListener {
             }
         }
         
-        // Si el bot ha encontrado una ficha válida, la coloca
         if (fichaElegida.isPresent()) {
             Modelo.Ficha f = fichaElegida.get();
             if (jugarPorIzquierda) modelo.getTablero().jugarPorIzquierda(f);
@@ -161,13 +166,11 @@ public class Controlador implements ActionListener {
             modelo.getManoBot().remove(f);
             actualizarPantallaJuego();
             
-            // Si el bot se queda sin fichas, pierdes la partida
             if (modelo.getManoBot().isEmpty()) {
                 vista.mostrarAviso("¡Ha ganao Er Bot Manue!");
                 finalizarPartida(false); 
             }
         } else {
-            // Si no tiene jugada posible, roba e intenta jugar de nuevo
             if (modelo.botRobaFicha()) {
                 vista.mostrarAviso("Bot Manue ha robao una ficha.");
                 actualizarPantallaJuego();
@@ -178,7 +181,6 @@ public class Controlador implements ActionListener {
         }
     }
 
-    // Se llama cuando nadie puede jugar y el pozo está vacío (gana quien tenga menos puntos en mano)
     private void verificarCierre() {
         int ptsJugador = modelo.getPuntosJugador();
         int ptsBot = modelo.getPuntosBot();
@@ -192,16 +194,8 @@ public class Controlador implements ActionListener {
         }
     }
 
-    // Calcula puntos de la partida, guarda en la base de datos y muestra la pantalla final
     private void finalizarPartida(boolean victoria) {
-        // Puntos variables: ganas entre 300-500 si ganas, y te llevas 50-100 de consolación si pierdes
-        int puntos;
-        if (victoria) {
-            puntos = (int) (Math.random() * 200) + 300; 
-        } else {
-            puntos = (int) (Math.random() * 50) + 50;   
-        }
-        
+        int puntos = victoria ? (int) (Math.random() * 200) + 300 : (int) (Math.random() * 50) + 50;
         boolean guardadoExitoso = modelo.guardarPuntuacion(puntos);
         
         if (guardadoExitoso) {
@@ -213,7 +207,6 @@ public class Controlador implements ActionListener {
         vista.mostrarPantallaFin(puntos, victoria);
     }
 
-    // Pide el Top 10 al Modelo y lo inyecta en la lista visual de la Vista
     private void cargarRankingEnVista() {
         vista.lstRanking.removeAll();
         List<String[]> top = modelo.obtenerTop10();
